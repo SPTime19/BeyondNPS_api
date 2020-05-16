@@ -39,8 +39,8 @@ def get_general_ranking(store_id: str, ranked_ts: "pd.DataFrame", dt_period: "da
     try:
         ranking_vars = [col for col in ranked_ts.columns if "_rank" in col]
         return \
-        ranked_ts.loc[(ranked_ts.store_id == store_id) & (ranked_ts.date_comment == dt_period)][ranking_vars].mean(
-            axis=1).iloc[0]
+            ranked_ts.loc[(ranked_ts.store_id == store_id) & (ranked_ts.date_comment == dt_period)][ranking_vars].mean(
+                axis=1).iloc[0]
     except IndexError:
         logging.error(f"Store '{store_id}' does not have enough data...")
     except Exception as err:
@@ -152,3 +152,14 @@ def get_store_worse_rankings(store_id: str, type_ts: "pd.DataFrame", n=3):
 
 def get_store_best_rankings(store_id: str, type_ts: "pd.DataFrame", n=3):
     return get_store_rankings(store_id, type_ts, n, by="best")
+
+
+def get_company_rank(metric: str, type_ts: "pd.DataFrame") -> dict:
+    """
+    Get the average rank companies rank on a metric
+    Eg.
+    {'sylvia-design': 0.3849835318068351,
+     'mobly': 0.39418091356099483}
+    """
+    ranked_metric = metric + "_rank"
+    return type_ts.groupby("company").mean().sort_values(by=ranked_metric, ascending=False)[ranked_metric].dropna().to_dict()

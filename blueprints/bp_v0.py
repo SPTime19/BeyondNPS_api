@@ -18,7 +18,18 @@ async def setup_connection(app, loop):
     configuration = app.config
 
 
-
+@bp_v0.route('/ranked/companies/<metric>', methods=['GET', 'OPTIONS'])
+async def get_ranked_companies(request, metric):
+    """
+    Get cmopanies ranked data for a specific metric
+    :param request:
+    :return: JSON
+    """
+    metric_rank = metric + "_rank"
+    if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
+        raise ServerError(status_code=400, message=f"Metric does not exist")
+    tmp_df = feat.get_company_rank(metric, stores_ranked_df)
+    return json(tmp_df)
 
 
 @bp_v0.route('/geoMarkers/<metric>', methods=['GET', 'OPTIONS'])
