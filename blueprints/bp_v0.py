@@ -50,12 +50,15 @@ async def get_markers(request, metric):
     metric_rank = metric + "_rank"
     if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
         raise ServerError(status_code=400, message=f"Metric does not exist")
+
     latest_period = stores_ranked_df.date_comment.drop_duplicates().sort_values().iloc[-1]
     variables = ["latitude", "longitude", "store_type", "store_id", metric, metric_rank]
+
     tmp_df = stores_ranked_df.loc[stores_ranked_df.date_comment == latest_period][variables]
     tmp_df.columns = ["latitude", "longitude", "store_type", "store_id", "metric", "metric_rank"]
     tmp_df["metric_eval"] = tmp_df.metric_rank.apply(lambda x: feat.evaluation_results(x)["result"])
-    return json(tmp_df.fillna("Not Available").to_dict("records"))
+
+    return json(tmp_df.dropna().to_dict("records"))
 
 
 @bp_v0.route('/detail/stores/<store_id>', methods=['GET', 'OPTIONS'])
