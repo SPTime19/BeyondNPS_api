@@ -3,6 +3,7 @@ from datetime import datetime
 import logging
 from typing import *
 
+
 def get_store_ranking(store_id: str, metric: str, ranked_ts: "pd.DataFrame", dt_period: "datetime") -> float:
     """
     Get the ranking value for dt_period, metric, store_id on ranked_ts
@@ -14,13 +15,13 @@ def get_store_ranking(store_id: str, metric: str, ranked_ts: "pd.DataFrame", dt_
 def evaluation_results(rank):
     if rank is not None:
         if rank >= 0.8:
-            result = "great"
-        elif rank <= 0.2:
-            result = "poor"
+            result = "Great"
+        elif rank <= 0.3:
+            result = "Poor"
         else:
-            result = "average"
+            result = "Good"
         return {"result": result, "rank": round(rank * 100, 2)}
-    return None
+    return "Not Available"
 
 
 def get_store_main_rankings(store_id: str, type_ts, company_ts) -> dict:

@@ -2,6 +2,7 @@ from sanic import Sanic
 from blueprints.bp_v0 import bp_v0
 from fire import Fire
 import yaml
+from sanic_cors import CORS, cross_origin
 
 
 class Dashboard:
@@ -16,6 +17,7 @@ class Dashboard:
         app = Sanic("BNP_API")
         app.config.update(config)
         app.blueprint(bp_v0)
+        CORS(app)
         return app
 
     def run_server(self):
