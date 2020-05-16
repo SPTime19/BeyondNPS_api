@@ -1,0 +1,13 @@
+
+# Default configs
+REQUEST_MAX_SIZE: 100000000   # How big a request may be (bytes)
+REQUEST_TIMEOUT: 60       # How long a request can take to arrive (sec)
+RESPONSE_TIMEOUT: 60       # How long a response can take to process (sec)
+KEEP_ALIVE: True     # Disables keep-alive when False
+KEEP_ALIVE_TIMEOUT: 5        # How long to hold a TCP connection open (sec)
+
+APP:
+  name: bnps-api
+  host: 0.0.0.0
+  port: 8000
+  workers: 1
