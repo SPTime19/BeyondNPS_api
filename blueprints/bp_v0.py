@@ -21,7 +21,7 @@ async def setup_connection(app, loop):
 @bp_v0.route('/ranked/companies/<metric>', methods=['GET', 'OPTIONS'])
 async def get_ranked_companies(request, metric):
     """
-    Get cmopanies ranked data for a specific metric
+    Get companies ranked data for a specific metric
     :param request:
     :return: JSON
     """
@@ -56,3 +56,35 @@ async def get_markers(request, metric):
     tmp_df.columns = ["latitude", "longitude", "store_type", "store_id", "metric", "metric_rank"]
     tmp_df["metric_eval"] = tmp_df.metric_rank.apply(lambda x: feat.evaluation_results(x)["result"])
     return json(tmp_df.fillna("Not Available").to_dict("records"))
+
+
+@bp_v0.route('/detail/stores/<store_id>', methods=['GET', 'OPTIONS'])
+async def get_store_detail(request, store_id):
+    """
+    Get detailed analytics of a store_id
+    :param store_id:
+    :param request:
+    :return: JSON
+    """
+    if store_id not in stores_ranked_df.store_id.unique():
+        raise ServerError(status_code=400, message=f"Invalid Store ID.")
+
+    # Get store general rankings
+    general_ranking = feat.get_store_general_rankings(store_id, stores_ranked_df, stores_ranked_company_df)
+
+    # Get store performance
+    performance = feat.get_store_performance(store_id, stores_ranked_df, exclude_macro_issues=True)
+
+    # Get store positive and negative highlights
+    best_highlight = feat.get_store_best_rankings(store_id, stores_ranked_df)
+    worst_highlight = feat.get_store_worse_rankings(store_id, stores_ranked_df)
+
+    return json({
+        "store_id": store_id,
+        "rankings": general_ranking,
+        "performance": performance,
+        "highlights": {
+            "best": best_highlight,
+            "worst": worst_highlight
+        }
+    })

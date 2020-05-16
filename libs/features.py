@@ -73,7 +73,7 @@ def format_issues_columns(col):
     return "_".join(col.split(" ")).lower()
 
 
-def get_store_performance(store_id: str, type_ts: "pd.DataFrame"):
+def get_store_performance(store_id: str, type_ts: "pd.DataFrame", exclude_macro_issues: bool = False):
     """
     Get positive and negative aspects from a company
     :param store_id: store_id
@@ -81,9 +81,15 @@ def get_store_performance(store_id: str, type_ts: "pd.DataFrame"):
     :return:
     """
     issues_metrics = [col for col in type_ts.columns if "issues" in col and "rank" not in col]
+
+    # Remove macro issue tags from the filter
+    if exclude_macro_issues:
+        issues_metrics = [col for col in issues_metrics if col not in ["product_issues", "business_issues"]]
+
     performance_df = type_ts.loc[type_ts.store_id == store_id].set_index("date_comment")[issues_metrics].diff()
     report_apects = {"positive": [], "negative": []}
 
+    # Labeling
     for issue in issues_metrics:
         if all(performance_df[issue].iloc[-2:] < 0):
             report_apects["positive"].append(
@@ -98,7 +104,7 @@ def get_store_performance(store_id: str, type_ts: "pd.DataFrame"):
     return report_apects
 
 
-def get_store_rankings(store_id: str, type_ts: "pd.DataFrame", n=3, by="best") -> "pd.DataFrame":
+def get_store_rankings(store_id: str, type_ts: "pd.DataFrame", n=3, by="best") -> dict:
     """
     Get stores top/lowest N ranking metrics
     :param store_id: store id
@@ -112,7 +118,9 @@ def get_store_rankings(store_id: str, type_ts: "pd.DataFrame", n=3, by="best") -
         return col.replace("_rank", "")
 
     def get_performance_label(rank):
-        if rank >= 0.8:
+        if rank >= 0.95:
+            return "Very Good"
+        elif rank >= 0.8:
             return "Good"
         elif rank <= 0.2:
             return "Bad"
@@ -130,20 +138,24 @@ def get_store_rankings(store_id: str, type_ts: "pd.DataFrame", n=3, by="best") -
 
     # Filter ts dataFrame
     tmp_ts = type_ts.loc[(type_ts.date_comment == latest_period) & (type_ts.store_id == store_id)][ranking_vars]
-    tmp_ts = tmp_ts.reset_index(drop=True).transpose().sort_values(by=0, ascending=ascend_rank).dropna(axis=0).iloc[0:n]
-    tmp_ts.columns = ["rank_val"]
-    tmp_ts.index = [format_display_issues_rank(i) for i in tmp_ts.index.values]
+    if tmp_ts.size > 0:
+        tmp_ts = tmp_ts.reset_index(drop=True).transpose().sort_values(by=0, ascending=ascend_rank).dropna(axis=0).iloc[
+                 0:n]
+        tmp_ts.columns = ["rank_val"]
+        tmp_ts.index = [format_display_issues_rank(i) for i in tmp_ts.index.values]
 
-    # Limit to get only average and bad metrics
-    if by == "best":
-        tmp_ts = tmp_ts.loc[tmp_ts.rank_val > 0.4]
+        # Limit to get only average and bad metrics
+        if by == "best":
+            tmp_ts = tmp_ts.loc[tmp_ts.rank_val > 0.4]
+        else:
+            tmp_ts = tmp_ts.loc[tmp_ts.rank_val < 0.7]
+
+        # Create perf label
+        tmp_ts["performance"] = tmp_ts.rank_val.apply(lambda x: get_performance_label(x))
+
+        return tmp_ts.reset_index().to_dict("record")
     else:
-        tmp_ts = tmp_ts.loc[tmp_ts.rank_val < 0.7]
-
-    # Create perf label
-    tmp_ts["performace"] = tmp_ts.rank_val.apply(lambda x: get_performance_label(x))
-
-    return tmp_ts
+        return {'performance': {}, 'rank_val': {}}
 
 
 def get_store_worse_rankings(store_id: str, type_ts: "pd.DataFrame", n=3):
@@ -162,4 +174,5 @@ def get_company_rank(metric: str, type_ts: "pd.DataFrame") -> dict:
      'mobly': 0.39418091356099483}
     """
     ranked_metric = metric + "_rank"
-    return type_ts.groupby("company").mean().sort_values(by=ranked_metric, ascending=False)[ranked_metric].dropna().to_dict()
+    return type_ts.groupby("company").mean().sort_values(by=ranked_metric, ascending=False)[
+        ranked_metric].dropna().to_dict()
