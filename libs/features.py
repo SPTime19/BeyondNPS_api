@@ -1,7 +1,34 @@
-import pandas as pd
-from datetime import datetime
 import logging
+from datetime import datetime
 from typing import *
+
+import pandas as pd
+
+
+def get_store_bechmark_comparison(store_id: str, metric: str, stores_ts: "pd.DataFrame",
+                                  benchmark_ts: "pd.DataFrame") -> pd.DataFrame:
+    """
+    Provides a dataframe with store_id x benchmark on a particular metric
+    """
+    # get benchmark class
+    store_class_map = stores_ts[["store_id", "store_type"]].drop_duplicates().set_index("store_id").to_dict()[
+        "store_type"]
+    store_class = store_class_map[store_id]
+
+    # Filter and agg with benchmark data
+    tmp_df = stores_ts.loc[(stores_ts.store_id == store_id)][["date_comment", metric]]
+    tmp_df = tmp_df.merge(benchmark_ts.loc[(benchmark_ts.store_type == store_class)][["date_comment", metric]],
+                          left_on="date_comment", right_on="date_comment", suffixes=('_store', '_benchmark'))
+    tmp_df.index = tmp_df.date_comment
+    tmp_df = tmp_df.drop("date_comment", axis=1)
+    return tmp_df
+
+
+def format_metric_display(metric):
+    """
+    Format metric name display
+    """
+    return " ".join(metric.split("_"))
 
 
 def get_store_ranking(store_id: str, metric: str, ranked_ts: "pd.DataFrame", dt_period: "datetime") -> float:
@@ -12,14 +39,28 @@ def get_store_ranking(store_id: str, metric: str, ranked_ts: "pd.DataFrame", dt_
     return ranked_ts.loc[(ranked_ts.store_id == store_id) & (ranked_ts.date_comment == dt_period)][metric].iloc[0]
 
 
+def get_store_highlights(store_id: str, type_ts: "pd.DataFrame") -> List[Dict[str, Any]]:
+    """
+    Get Store Highlights Ranking
+    :param store_id: store id
+    :param type_ts: ranked store df
+    :return: [{'index': 'product_issues_quality',
+              'rank_val': 0.21739130434782608,
+              'performance': 'Average'}...]
+    """
+    return get_store_rankings(store_id, type_ts, 7)
+
+
 def evaluation_results(rank):
     if rank is not None:
-        if rank >= 0.8:
+        if rank >= 0.95:
             result = "Great"
+        elif rank >= 0.7:
+            result = "Good"
         elif rank <= 0.3:
             result = "Poor"
         else:
-            result = "Good"
+            result = "Average"
         return {"result": result, "rank": round(rank * 100, 2)}
     return "Not Available"
 
@@ -104,13 +145,13 @@ def get_store_performance(store_id: str, type_ts: "pd.DataFrame", exclude_macro_
     return report_apects
 
 
-def get_store_rankings(store_id: str, type_ts: "pd.DataFrame", n=3, by="best") -> dict:
+def get_store_rankings(store_id: str, type_ts: "pd.DataFrame", n=3, by=None) -> List[Dict[str, Any]]:
     """
     Get stores top/lowest N ranking metrics
     :param store_id: store id
     :param type_ts: ranked time series dataFrame
     :param n: Number of top/lowest N rankings
-    :param by: [best/worst] to get the top/lowest N rankings
+    :param by: [best/worst/None] to get the top/lowest N rankings
     :return: dataFrame with rank value and performance indicator
     """
 
@@ -119,11 +160,11 @@ def get_store_rankings(store_id: str, type_ts: "pd.DataFrame", n=3, by="best") -
 
     def get_performance_label(rank):
         if rank >= 0.95:
-            return "Very Good"
+            return "Great"
         elif rank >= 0.8:
             return "Good"
         elif rank <= 0.2:
-            return "Bad"
+            return "Poor"
         else:
             return "Average"
 
@@ -147,7 +188,7 @@ def get_store_rankings(store_id: str, type_ts: "pd.DataFrame", n=3, by="best") -
         # Limit to get only average and bad metrics
         if by == "best":
             tmp_ts = tmp_ts.loc[tmp_ts.rank_val > 0.4]
-        else:
+        elif by == "worst":
             tmp_ts = tmp_ts.loc[tmp_ts.rank_val < 0.7]
 
         # Create perf label
@@ -155,7 +196,7 @@ def get_store_rankings(store_id: str, type_ts: "pd.DataFrame", n=3, by="best") -
 
         return tmp_ts.reset_index().to_dict("record")
     else:
-        return {'performance': {}, 'rank_val': {}}
+        return [{'performance': None, 'rank_val': None, "index": None}]
 
 
 def get_store_worse_rankings(store_id: str, type_ts: "pd.DataFrame", n=3):
