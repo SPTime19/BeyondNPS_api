@@ -10,10 +10,11 @@ bp_v0 = Blueprint('v0', url_prefix='/')
 
 @bp_v0.listener('before_server_start')
 async def setup_connection(app, loop):
-    global stores_ranked_df, stores_ranked_company_df, benchmark_df
+    global stores_ranked_df, stores_ranked_company_df, benchmark_df, stores_performance_agg_view
     stores_ranked_df = pickle.load(open("views/ranked_stores_ts_quarterly.pckl", "rb"))
     stores_ranked_company_df = pickle.load(open("views/ranked_company_stores_ts_quarterly.pckl", "rb"))
     benchmark_df = pickle.load(open("views/benchmarks_ts_quarterly.pckl", "rb"))
+    stores_performance_agg_view = pickle.load(open("views/stores_performance_agg_view.pckl", "rb"))
 
     global configuration
     configuration = app.config
@@ -62,6 +63,37 @@ async def get_markers(request, metric):
     return json(tmp_df.dropna().to_dict("records"))
 
 
+@bp_v0.route('/metric/<metric>/store/<store_id>', methods=['GET', 'OPTIONS'])
+async def get_metric_ts(request, metric, store_id):
+    """
+    Get timeseries for store against their benchmark
+    :param request:
+    :return: JSON
+    """
+    metric_rank = metric + "_rank"
+    if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
+        raise ServerError(status_code=400, message=f"Metric does not exist")
+    tmp_df = feat.get_store_bechmark_comparison(store_id, metric, stores_ranked_df, benchmark_df).dropna()
+    tmp_df.columns = ["metric", "benchmark"]
+    tmp_df.reset_index(inplace=True)
+    tmp_df.date_comment = tmp_df.date_comment.astype(str)
+    return json(tmp_df.to_dict("records"))
+
+
+@bp_v0.route('/metric/<metric>/company/<company_id>', methods=['GET', 'OPTIONS'])
+async def get_company_metric_ts(request, metric, company_id):
+    """
+    Get timeseries for company against their benchmark
+    :param request:
+    :return: JSON
+    """
+    metric_rank = metric + "_rank"
+    if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
+        raise ServerError(status_code=400, message=f"Metric does not exist")
+    tmp_df = feat.get_company_bechmark_comparison(company_id, metric, stores_ranked_df)
+    return json(tmp_df)
+
+
 @bp_v0.route('/detail/stores/<store_id>', methods=['GET', 'OPTIONS'])
 async def get_store_detail(request, store_id):
     """
@@ -96,18 +128,29 @@ async def get_store_detail(request, store_id):
     })
 
 
-@bp_v0.route('/metric/<metric>/store/<store_id>', methods=['GET', 'OPTIONS'])
-async def get_metric_ts(request, metric, store_id):
+@bp_v0.route('/detail/company/<company_id>', methods=['GET', 'OPTIONS'])
+async def get_company_details(request, company_id):
     """
-    Get timeseries for store against their benchmark
+    Get detailed analytics of a company_id
     :param request:
     :return: JSON
     """
-    metric_rank = metric + "_rank"
-    if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
-        raise ServerError(status_code=400, message=f"Metric does not exist")
-    tmp_df = feat.get_store_bechmark_comparison(store_id, metric, stores_ranked_df, benchmark_df).dropna()
-    tmp_df.columns = ["metric", "benchmark"]
-    tmp_df.reset_index(inplace=True)
-    tmp_df.date_comment = tmp_df.date_comment.astype(str)
-    return json(tmp_df.to_dict("records"))
+    if company_id not in stores_ranked_df.company.unique():
+        raise ServerError(status_code=400, message=f"Invalid Company ID.")
+
+    number_stores = feat.get_number_of_stores(company_id, stores_ranked_df)
+    ranked_companies = feat.get_ranked_companies(stores_ranked_df)
+
+    if company_id in ranked_companies:
+        company_rank = ranked_companies[company_id]
+    else:
+        company_rank = "Not Available"
+    best_worst_stores = feat.get_best_worst_store(company_id, stores_ranked_df)
+    store_performants = feat.get_company_general_performance(company_id, stores_performance_agg_view)
+    return json({
+        "company_id": company_id,
+        "num_stores": number_stores,
+        "company_rank": company_rank,
+        "highlight_stores": best_worst_stores,
+        "perfomants": store_performants
+    })

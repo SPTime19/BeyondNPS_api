@@ -5,6 +5,101 @@ from typing import *
 import pandas as pd
 
 
+def get_number_of_stores(company_id: str, type_ts) -> int:
+    return type_ts.loc[type_ts.company == company_id].store_id.unique().size
+
+
+def get_lat_long(store_id: str, typ_ts) -> dict:
+    """
+    Return {latitude: n, longitude: n} of a particular store
+    :param store_id:
+    :param typ_ts:
+    :return:
+    """
+    return typ_ts.loc[typ_ts.store_id == store_id].iloc[0][["latitude", "longitude"]].to_dict()
+
+
+def get_ranked_companies(type_ts) -> dict:
+    """
+    Get ranked companies
+    :param type_ts:
+    :return:
+    """
+    latest_period = type_ts.date_comment.drop_duplicates().sort_values().iloc[-1]
+    issues_metrics = [col for col in type_ts.columns if "issues" in col and "rank" not in col]
+    return type_ts.loc[type_ts.date_comment == latest_period].groupby("company").mean()[issues_metrics].mean(
+        axis=1).dropna().rank().sort_values().to_dict()
+
+
+def get_best_worst_store(company_id: str, type_ts):
+    """
+    Get best/worst store
+    Ex:
+    {'best_store': {'store_id': 'casas-bahia_5',
+      'avg_rank': 0.9144736842105262,
+      'latitude': '-23.5402868',
+      'longitude': '-46.4723485'},
+     'worst_store': {'store_id': 'casas-bahia_10',
+      'avg_rank': 0.10625,
+      'latitude': '-23.4947944',
+      'longitude': '-46.4409685'}}
+    :param company_id:
+    :param type_ts:
+    :return:
+    """
+    issues_metrics = [col for col in type_ts.columns if "issues" in col and "rank" in col]
+    latest_period = type_ts.date_comment.drop_duplicates().sort_values().iloc[-1]
+    ranked_stores = \
+        type_ts.loc[(type_ts.company == company_id) & (type_ts.date_comment == latest_period)].set_index("store_id")[
+            issues_metrics].mean(axis=1).sort_values(ascending=False).dropna().reset_index()
+    ranked_stores.columns = ["store_id", "avg_rank"]
+    resp = dict()
+    for label, data in zip(["best_store", "worst_store"],
+                           [ranked_stores.iloc[0].to_dict(), ranked_stores.iloc[-1].to_dict()]):
+        tmp = data.copy()
+        tmp.update(get_lat_long(tmp["store_id"], type_ts))
+        resp[label] = tmp
+    return resp
+
+
+def get_company_general_performance(company_id: str, stores_performance_agg_view: "pd.DataFrame", topK: int=3):
+    """
+    Get positive and negative aspects from a company
+    :param store_id: store_id
+    :param type_ts: ranked pandas dataFrame by size type
+    :return:
+    """
+    tmp_df = stores_performance_agg_view.loc[stores_performance_agg_view.company == company_id]
+    resp = {"worsening": [], "improving": []}
+    for sort_var in resp.keys():
+        tmp = tmp_df.sort_values(by=sort_var).iloc[-topK::]
+        tmp = tmp.loc[tmp[sort_var] > 0]
+        if tmp.size > 0:
+            resp[sort_var] = tmp.to_dict("records")
+    return resp
+
+
+def get_company_bechmark_comparison(company_id: str, metric: str, stores_ts: "pd.DataFrame") -> pd.DataFrame:
+    """
+    Provides a dataframe with company_id x benchmark on a particular metric
+    """
+    # Filter and agg with benchmark data
+    tmp_df = stores_ts.loc[(stores_ts.company == company_id)][["date_comment", metric]].groupby(
+        "date_comment").mean().reset_index()
+    benchmark_ts = stores_ts.loc[(stores_ts.company != company_id)][["date_comment", metric]].groupby(
+        "date_comment").mean().reset_index()
+    tmp_df = tmp_df.merge(benchmark_ts, left_on="date_comment", right_on="date_comment",
+                          suffixes=('_company', '_benchmark'))
+
+    tmp_df.index = tmp_df.date_comment
+    tmp_df = tmp_df.drop("date_comment", axis=1)
+
+    tmp_df.columns = ["metric", "benchmark"]
+    tmp_df.reset_index(inplace=True)
+    tmp_df.date_comment = tmp_df.date_comment.astype(str)
+    return tmp_df.to_dict("records")
+
+
 def get_store_bechmark_comparison(store_id: str, metric: str, stores_ts: "pd.DataFrame",
                                   benchmark_ts: "pd.DataFrame") -> pd.DataFrame:
     """
