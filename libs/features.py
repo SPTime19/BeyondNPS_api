@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from typing import *
 
+import numpy as np
 import pandas as pd
 
 
@@ -62,9 +63,9 @@ def get_best_worst_store(company_id: str, type_ts):
     return resp
 
 
-def get_company_general_performance(company_id: str, stores_performance_agg_view: "pd.DataFrame", topK: int=3):
+def get_company_general_performance(company_id: str, stores_performance_agg_view: "pd.DataFrame", topK: int = 3):
     """
-    Get positive and negative aspects from a company
+    Get which stores are improving or getting worse
     :param store_id: store_id
     :param type_ts: ranked pandas dataFrame by size type
     :return:
@@ -79,9 +80,37 @@ def get_company_general_performance(company_id: str, stores_performance_agg_view
     return resp
 
 
+def get_metric_distribution(metric: str, company_id: str, dt_com: str, store_ts, bins: int = 10) -> dict:
+    """
+    Get metric distribution for a company id against benchmark
+    :return: Ex
+    {'x_range': [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0],
+     'benchmark': [0, 0, 0, 0, 0, 1, 4, 103, 31, 1],
+     'company': [0, 0, 0, 0, 0, 0, 1, 22, 26, 0],
+     'metric': 'rating',
+     'date': '2019-06-30'}
+    """
+    if metric == "rating":
+        metric_range = [0, 5]
+    else:
+        metric_range = [0, 0.5]
+    binned_company, xrange = np.histogram(
+        store_ts.loc[(store_ts.company == company_id) & (store_ts.date_comment == dt_com)][metric].dropna().values,
+        bins=bins, range=metric_range)
+    binned_benchmark, _ = np.histogram(
+        store_ts.loc[(store_ts.company != company_id) & (store_ts.date_comment == dt_com)][metric].dropna().values,
+        bins=bins, range=metric_range)
+
+    # Have to convert from numpy.float/int to python int/float for json serializer
+    return {"x_range": list(round(float(i), 2) for i in xrange),
+            "benchmark": list(int(i) for i in binned_benchmark),
+            "company": list(int(i) for i in binned_company),
+            "metric": metric}
+
+
 def get_company_bechmark_comparison(company_id: str, metric: str, stores_ts: "pd.DataFrame") -> pd.DataFrame:
     """
-    Provides a dataframe with company_id x benchmark on a particular metric
+    Provides a dict with company_id x benchmark on a particular metric
     """
     # Filter and agg with benchmark data
     tmp_df = stores_ts.loc[(stores_ts.company == company_id)][["date_comment", metric]].groupby(
