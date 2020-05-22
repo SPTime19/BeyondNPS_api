@@ -27,7 +27,7 @@ async def get_ranked_companies(request, metric):
     :param request:
     :return: JSON
     """
-    metric_rank = metric + "_rank"
+    metric_rank = feat.format_issues_columns(metric) + "_rank"
     if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
         raise ServerError(status_code=400, message=f"Metric does not exist")
     tmp_df = feat.get_company_rank(metric, stores_ranked_df)
@@ -49,7 +49,7 @@ async def get_markers(request, metric):
     :param request:
     :return: JSON
     """
-    metric_rank = metric + "_rank"
+    metric_rank = feat.format_issues_columns(metric) + "_rank"
     if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
         raise ServerError(status_code=400, message=f"Metric does not exist")
 
@@ -102,7 +102,7 @@ async def get_metric_ts(request, metric, store_id):
     :param request:
     :return: JSON
     """
-    metric_rank = metric + "_rank"
+    metric_rank = feat.format_issues_columns(metric) + "_rank"
     if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
         raise ServerError(status_code=400, message=f"Metric does not exist")
     tmp_df = feat.get_store_bechmark_comparison(store_id, metric, stores_ranked_df, benchmark_df).dropna()
@@ -119,7 +119,7 @@ async def get_company_metric_ts(request, metric, company_id):
     :param request:
     :return: JSON
     """
-    metric_rank = metric + "_rank"
+    metric_rank = feat.format_issues_columns(metric) + "_rank"
     if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
         raise ServerError(status_code=400, message=f"Metric does not exist")
     tmp_df = feat.get_company_bechmark_comparison(company_id, metric, stores_ranked_df)

@@ -126,7 +126,8 @@ def get_company_bechmark_comparison(company_id: str, metric: str, stores_ts: "pd
     tmp_df.columns = ["metric", "benchmark"]
     tmp_df.reset_index(inplace=True)
     tmp_df.date_comment = tmp_df.date_comment.astype(str)
-    return tmp_df.to_dict("records")
+
+    return tmp_df.dropna(axis=1).to_dict("records")
 
 
 def get_store_bechmark_comparison(store_id: str, metric: str, stores_ts: "pd.DataFrame",
