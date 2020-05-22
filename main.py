@@ -3,7 +3,7 @@ from blueprints.bp_v0 import bp_v0
 from fire import Fire
 import yaml
 from sanic_cors import CORS, cross_origin
-
+import os
 
 class Dashboard:
 
@@ -24,7 +24,7 @@ class Dashboard:
         self.app.run(host=self.config['APP']['host'],
                      port=int(self.config['APP']['port']),
                      access_log=True,
-                     workers=int(self.config['APP']["workers"]))
+                     workers=int(os.environ.get('WEB_CONCURRENCY', 1)))
 
 
 if __name__ == '__main__':
