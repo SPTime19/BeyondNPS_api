@@ -78,7 +78,7 @@ async def get_markers_company(request, metric, company_id):
     :param request:
     :return: JSON
     """
-    metric_rank = metric + "_rank"
+    metric_rank = feat.format_issues_columns(metric) + "_rank"
     if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
         raise ServerError(status_code=400, message=f"Metric does not exist")
 
