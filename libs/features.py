@@ -101,10 +101,13 @@ def get_metric_distribution(metric: str, company_id: str, dt_com: str, store_ts,
         store_ts.loc[(store_ts.company != company_id) & (store_ts.date_comment == dt_com)][metric].dropna().values,
         bins=bins, range=metric_range)
 
+    binned_benchmark = binned_benchmark / binned_benchmark.sum(axis=0, keepdims=1)
+    binned_company = binned_company / binned_company.sum(axis=0, keepdims=1)
+
     # Have to convert from numpy.float/int to python int/float for json serializer
     return {"x_range": list(round(float(i), 2) for i in xrange),
-            "benchmark": list(int(i) for i in binned_benchmark),
-            "company": list(int(i) for i in binned_company),
+            "benchmark": list(round(float(i), 2) for i in binned_benchmark),
+            "company": list(round(float(i), 2) for i in binned_company),
             "metric": metric}
 
 
