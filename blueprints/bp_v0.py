@@ -27,10 +27,11 @@ async def get_ranked_companies(request, metric):
     :param request:
     :return: JSON
     """
-    metric_rank = feat.format_issues_columns(metric) + "_rank"
+    clean_metric = feat.format_issues_columns(metric)
+    metric_rank = clean_metric + "_rank"
     if any([m not in stores_ranked_df.columns for m in [metric, metric_rank]]):
         raise ServerError(status_code=400, message=f"Metric does not exist")
-    tmp_df = feat.get_company_rank(metric, stores_ranked_df)
+    tmp_df = feat.get_company_rank(clean_metric, stores_ranked_df)
     return json(tmp_df)
 
 
